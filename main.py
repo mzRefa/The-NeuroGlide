@@ -6,30 +6,35 @@ from src.controller import MouseController
 def start_neuroglide():
     cap = cv2.VideoCapture(0)
     tracker = HandTracker()
-    mouse = MouseController(smoothening=7) # Increase for more "Glide"
+    mouse = MouseController(smoothening=7)
 
     while cap.isOpened():
         success, frame = cap.read()
         if not success: break
-        frame = cv2.flip(frame, 1) # Mirror the image
+        frame = cv2.flip(frame, 1)
 
-        # Get landmarks from the tracker
         lms = tracker.find_hand_landmarks(frame)
 
         if len(lms) != 0:
-            # Index finger tip (ID 8) and Thumb tip (ID 4)
-            ix, iy = lms[8][1], lms[8][2]
-            tx, ty = lms[4][1], lms[4][2]
+            # Coordinates
+            tx, ty = lms[4][1], lms[4][2]   # Thumb Tip
+            ix, iy = lms[8][1], lms[8][2]   # Index Tip
+            mx, my = lms[12][1], lms[12][2] # Middle Tip
 
-            # Calculate distance for clicking
-            dist = np.hypot(ix - tx, iy - ty)
+            # Calculate Euclidean Distances
+            left_dist = np.hypot(ix - tx, iy - ty)
+            right_dist = np.hypot(mx - tx, my - ty)
 
-            if dist > 35:
-                # If fingers are apart, just move
-                mouse.move_mouse(ix, iy)
+            # Gesture Logic
+            if left_dist < 35:
+                mouse.click(button='left')
+                cv2.circle(frame, (ix, iy), 15, (0, 255, 0), cv2.FILLED) # Green for Left
+            elif right_dist < 35:
+                mouse.click(button='right')
+                cv2.circle(frame, (mx, my), 15, (0, 0, 255), cv2.FILLED) # Red for Right
             else:
-                # If fingers touch, click!
-                mouse.click()
+                # If no fingers are touching, glide the cursor
+                mouse.move_mouse(ix, iy)
 
         cv2.imshow("NeuroGlide Interface", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
